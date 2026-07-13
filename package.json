@@ -17,6 +17,7 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
+    "@azisaba/graph": "0.1.0-rc.1",
     "discord.js": "^14.26.5"
   }
 }

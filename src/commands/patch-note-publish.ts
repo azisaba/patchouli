@@ -8,6 +8,7 @@ import {
 import {
   ChatInputCommandInteraction,
   EmbedBuilder,
+  FileUploadBuilder,
   LabelBuilder,
   Locale,
   ModalBuilder,
@@ -115,6 +116,23 @@ export async function receivePatchNotePublishSubcommand(interaction: ChatInputCo
       new TextInputBuilder().setCustomId("body").setStyle(TextInputStyle.Paragraph),
     );
 
+  const imagesLabel = new LabelBuilder()
+    .setLabel(
+      i18n(interaction.locale, {
+        [Locale.EnglishUS]: "🎨 Images",
+        [Locale.Japanese]: "🎨 画像",
+      }),
+    )
+    .setDescription(
+      i18n(interaction.locale, {
+        [Locale.EnglishUS]: "Attach up to 10 images to illustrate this patch note (optional).",
+        [Locale.Japanese]: "このパッチノートを説明する画像を10枚まで添付できます（任意）。",
+      }),
+    )
+    .setFileUploadComponent(
+      new FileUploadBuilder().setCustomId("images").setRequired(false).setMaxValues(10),
+    );
+
   await interaction.showModal(
     new ModalBuilder()
       .setCustomId("patchouli:publish")
@@ -124,7 +142,7 @@ export async function receivePatchNotePublishSubcommand(interaction: ChatInputCo
           [Locale.Japanese]: "パッチノートを作成",
         }),
       )
-      .addLabelComponents(targetLabel, categoryLabel, titleLabel, bodyLabel),
+      .addLabelComponents(targetLabel, categoryLabel, titleLabel, bodyLabel, imagesLabel),
   );
 }
 
@@ -136,6 +154,7 @@ export async function receivePatchNotePublishModalSubmit(
   const category = interaction.fields.getStringSelectValues("category")[0] as PatchNoteCategory;
   const title = interaction.fields.getTextInputValue("title");
   const body = interaction.fields.getTextInputValue("body");
+  const attachments = Array.from(interaction.fields.getUploadedFiles("images")?.values() ?? []);
 
   if (!instanceOfPatchNoteTarget(target)) {
     await interaction.reply({
@@ -153,25 +172,55 @@ export async function receivePatchNotePublishModalSubmit(
     return;
   }
 
+  if (attachments.some((attachment) => !attachment.contentType?.startsWith("image/"))) {
+    await interaction.reply({
+      content: `❌ Validation error: Only image attachments are allowed.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
   await interaction.deferReply();
 
   try {
-    /* const patchNote = await api.createPatchNote({
+    const images = await Promise.all(
+      attachments.map(async (attachment) => {
+        const response = await fetch(attachment.url);
+        if (!response.ok) {
+          throw new Error(
+            `Failed to download attachment ${attachment.id}: ${response.status} ${response.statusText}`,
+          );
+        }
+
+        return new File([await response.blob()], attachment.name, {
+          type: attachment.contentType ?? undefined,
+        });
+      }),
+    );
+
+    const patchNote = await api.createPatchNote({
       target,
       category,
       title,
       body,
-    }); */
+      images,
+    });
 
     await interaction.editReply({
       embeds: [
         new EmbedBuilder()
-          .setTitle(`✅ ${title}`)
-          .setDescription(body)
+          .setTitle(`✅ ${patchNote.title}`)
+          .setDescription(patchNote.body)
           .setColor("#caa29a")
           .addFields(
-            { name: "🛠️ ID", value: "\`a280aeb5-b540-42f8-9f69-4a3bc056f0a1\`" },
-            { name: "🔗️ URL", value: `https://www.azisaba.net/patch-notes/` },
+            {
+              name: "🛠️ ID",
+              value: `\`${patchNote.id}\``,
+            },
+            {
+              name: "🔗️ URL",
+              value: `https://www.azisaba.net/patch-notes/${patchNote.id}`,
+            },
             {
               name: i18n(interaction.guildLocale, {
                 [Locale.EnglishUS]: "📦 Target",
@@ -189,6 +238,9 @@ export async function receivePatchNotePublishModalSubmit(
               inline: true,
             },
           ),
+        ...patchNote.imageUrls.map((imageUrl) =>
+          new EmbedBuilder().setColor("#caa29a").setImage(imageUrl),
+        ),
       ],
     });
   } catch (error) {

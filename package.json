@@ -11,7 +11,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@azisaba/graph": "0.1.0-rc.1",
+    "@azisaba/graph": "0.1.0-rc.2",
     "discord.js": "^14.26.5",
     "tsx": "^4.23.0"
   },

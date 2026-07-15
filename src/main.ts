@@ -1,4 +1,4 @@
-import { PatchNotesApi } from "@azisaba/graph";
+import { Configuration, PatchNotesApi } from "@azisaba/graph";
 import { Client, Events, GatewayIntentBits } from "discord.js";
 
 import { buildPatchNoteCommand, receivePatchNoteCommand } from "./commands/patch-note";
@@ -8,8 +8,6 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds],
 });
 
-const patchNotesApi = new PatchNotesApi();
-
 async function main() {
   console.log("Starting...");
 
@@ -17,6 +15,17 @@ async function main() {
   if (!token) {
     throw new Error("`BOT_TOKEN` must be set");
   }
+
+  const graphApiKey = process.env.GRAPH_API_KEY;
+  if (!graphApiKey) {
+    throw new Error("`GRAPH_API_KEY` must be set");
+  }
+
+  const patchNotesApi = new PatchNotesApi(
+    new Configuration({
+      accessToken: graphApiKey,
+    }),
+  );
 
   client.once(Events.ClientReady, async (readyClient) => {
     console.log(`Logged in as ${readyClient.user.tag}`);

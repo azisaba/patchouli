@@ -14,8 +14,6 @@ const configSchema = z.object({
   patchNoteTargets: z.record(z.string(), patchNoteTargetConfigSchema.optional()),
 });
 
-export type PatchNoteTargetConfig = z.infer<typeof patchNoteTargetConfigSchema>;
-
 export type Config = z.infer<typeof configSchema>;
 
 export async function loadConfig(): Promise<Config> {

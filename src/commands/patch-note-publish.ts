@@ -185,7 +185,7 @@ export async function receivePatchNotePublishModalSubmit(
     return;
   }
 
-  const publisherRoleId = config.patchNoteTargets[target]?.roleId;
+  const publisherRoleId = config[target]?.roleId;
   const memberRoles = interaction.member.roles;
   if (
     publisherRoleId &&

@@ -21,7 +21,7 @@ export async function notifyPublished({
   config: Config;
   patchNote: PatchNote;
 }) {
-  const channelId = config.patchNoteTargets[patchNote.target]?.channelId;
+  const channelId = config[patchNote.target]?.channelId;
   if (!channelId) {
     return;
   }

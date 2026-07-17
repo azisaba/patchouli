@@ -1,74 +1,9 @@
 import { Configuration, PatchNotesApi, PlayersApi } from "@azisaba/graph";
 import { Client, Events, GatewayIntentBits } from "discord.js";
 
-
-
 import { buildPatchNoteCommand, receivePatchNoteCommand } from "./commands/patch-note";
 import { receivePatchNotePublishModalSubmit } from "./commands/patch-note-publish";
 import { loadConfig } from "./config";
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],

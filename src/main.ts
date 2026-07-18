@@ -1,5 +1,5 @@
-import { Configuration, PatchNotesApi, PlayersApi } from "@azisaba/graph";
-import { Client, Events, GatewayIntentBits } from "discord.js";
+import { Configuration, PatchNotesApi, PatchNoteTarget, PlayersApi } from "@azisaba/graph";
+import { Client, Events, GatewayIntentBits, WebhookClient } from "discord.js";
 
 import { buildPatchNoteCommand, receivePatchNoteCommand } from "./commands/patch-note";
 import { receivePatchNotePublishModalSubmit } from "./commands/patch-note-publish";
@@ -9,23 +9,26 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds],
 });
 
+const webhookClients = {
+  [PatchNoteTarget.CreativePro]: createWebhookClient(process.env.CREATIVE_PRO_WEBHOOK_URL),
+  [PatchNoteTarget.Frontier]: createWebhookClient(process.env.FRONTIER_WEBHOOK_URL),
+  [PatchNoteTarget.Life]: createWebhookClient(process.env.LIFE_WEBHOOK_URL),
+  [PatchNoteTarget.LeonGunWar2]: createWebhookClient(process.env.LGW2_WEBHOOK_URL),
+  [PatchNoteTarget.Sclat]: createWebhookClient(process.env.SCLAT_WEBHOOK_URL),
+} satisfies Partial<Record<PatchNoteTarget, WebhookClient>>;
+
 async function main() {
   console.log("Starting...");
 
-  const token = process.env.BOT_TOKEN;
-  if (!token) {
-    throw new Error("`BOT_TOKEN` must be set");
+  const discordBotToken = process.env.DISCORD_BOT_TOKEN;
+  if (!discordBotToken) {
+    throw new Error("`DISCORD_BOT_TOKEN` must be set");
   }
 
   const graphApiKey = process.env.GRAPH_API_KEY;
   if (!graphApiKey) {
     throw new Error("`GRAPH_API_KEY` must be set");
   }
-
-  const config = await loadConfig().catch((error) => {
-    console.error("Failed to load config");
-    throw error;
-  });
 
   const patchNotesApi = new PatchNotesApi(
     new Configuration({
@@ -38,6 +41,11 @@ async function main() {
       accessToken: graphApiKey,
     }),
   );
+
+  const config = await loadConfig().catch((error) => {
+    console.error("Failed to load config");
+    throw error;
+  });
 
   client.once(Events.ClientReady, async (readyClient) => {
     console.log(`Logged in as ${readyClient.user.tag}`);
@@ -63,25 +71,40 @@ async function main() {
     } else if (interaction.isModalSubmit()) {
       switch (interaction.customId) {
         case "patchouli:publish":
-          await receivePatchNotePublishModalSubmit(interaction, patchNotesApi, playersApi, config);
+          await receivePatchNotePublishModalSubmit({
+            interaction,
+            patchNotesApi,
+            playersApi,
+            webhookClients,
+            config,
+          });
           break;
       }
     }
   });
 
-  await client.login(token);
+  await client.login(discordBotToken);
 }
 
 async function shutdown(signal: string) {
   console.log(`\nReceived ${signal}, shutting down...`);
   try {
     await client.destroy();
+
+    for (const webhookClient of Object.values(webhookClients)) {
+      webhookClient?.destroy();
+    }
+
     console.log("Client destroyed successfully");
     process.exit(0);
   } catch (error) {
     console.error("Error during shutdown:", error);
     process.exit(1);
   }
+}
+
+function createWebhookClient(url?: string): WebhookClient | undefined {
+  return url ? new WebhookClient({ url }) : undefined;
 }
 
 process.on("SIGINT", () => shutdown("SIGINT"));

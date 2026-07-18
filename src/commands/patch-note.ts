@@ -5,6 +5,7 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 
+import { Config } from "../config";
 import {
   buildPatchNotePublishSubcommand,
   receivePatchNotePublishSubcommand,
@@ -17,22 +18,27 @@ import {
 export function buildPatchNoteCommand(): RESTPostAPIChatInputApplicationCommandsJSONBody {
   return new SlashCommandBuilder()
     .setName("patch-note")
-    .setDescription("The Patchouli command-line tool")
+    .setDescription("パッチノートを管理できるよ")
     .addSubcommand(buildPatchNotePublishSubcommand)
     .addSubcommand(buildPatchNoteUnpublishSubcommand)
     .toJSON();
 }
 
-export async function receivePatchNoteCommand(
-  interaction: ChatInputCommandInteraction,
-  api: PatchNotesApi,
-) {
+export async function receivePatchNoteCommand({
+  interaction,
+  patchNotesApi,
+  config,
+}: {
+  interaction: ChatInputCommandInteraction;
+  patchNotesApi: PatchNotesApi;
+  config: Config;
+}) {
   switch (interaction.options.getSubcommand()) {
     case "publish":
       await receivePatchNotePublishSubcommand(interaction);
       break;
     case "unpublish":
-      await receivePatchNoteUnpublishSubcommand(interaction, api);
+      await receivePatchNoteUnpublishSubcommand({ interaction, patchNotesApi, config });
       break;
   }
 }

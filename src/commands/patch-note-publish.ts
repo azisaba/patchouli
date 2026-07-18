@@ -11,7 +11,6 @@ import {
   EmbedBuilder,
   FileUploadBuilder,
   LabelBuilder,
-  Locale,
   ModalBuilder,
   ModalSubmitInteraction,
   SlashCommandSubcommandBuilder,
@@ -19,119 +18,81 @@ import {
   StringSelectMenuOptionBuilder,
   TextInputBuilder,
   TextInputStyle,
+  WebhookClient,
 } from "discord.js";
 
-import { Config } from "../config";
-import { i18n, localizePatchNoteCategory, localizePatchNoteTarget } from "../utils/i18n";
-import { notifyPublished } from "../utils/notificator";
+import { checkRole, Config } from "../config";
+import { notify } from "../webhooks/notificator";
+
+const patchNoteTargetNames = {
+  [PatchNoteTarget.CreativePro]: "CreativePro",
+  [PatchNoteTarget.Frontier]: "Frontier",
+  [PatchNoteTarget.Life]: "Life",
+  [PatchNoteTarget.LeonGunWar2]: "LGW2",
+  [PatchNoteTarget.Sclat]: "Sclat",
+} satisfies Record<PatchNoteTarget, string>;
+
+const patchNoteCategoryNames = {
+  [PatchNoteCategory.Balance]: "🔧 バランス",
+  [PatchNoteCategory.Feature]: "✨ 新機能",
+  [PatchNoteCategory.Fix]: "🐛 バグ修正",
+  [PatchNoteCategory.Improvement]: "📈 改善",
+} satisfies Record<PatchNoteCategory, string>;
 
 export function buildPatchNotePublishSubcommand(
   builder: SlashCommandSubcommandBuilder,
 ): SlashCommandSubcommandBuilder {
-  return builder
-    .setName("publish")
-    .setDescription("Publish a patch note.")
-    .setDescriptionLocalization(Locale.Japanese, "パッチノートを作成します。");
+  return builder.setName("publish").setDescription("パッチノートを作成します");
 }
 
 export async function receivePatchNotePublishSubcommand(interaction: ChatInputCommandInteraction) {
   const targetLabel = new LabelBuilder()
-    .setLabel(
-      i18n(interaction.locale, {
-        [Locale.EnglishUS]: "📦 Target",
-        [Locale.Japanese]: "📦 ターゲット",
-      }),
-    )
-    .setDescription(
-      i18n(interaction.locale, {
-        [Locale.EnglishUS]: "Select a target for this patch note.",
-        [Locale.Japanese]: "何についてのパッチノートですか？",
-      }),
-    )
+    .setLabel("📦 サーバー")
+    .setDescription("どのサーバーについてのパッチノートですか？")
     .setStringSelectMenuComponent(
       new StringSelectMenuBuilder()
         .setCustomId("target")
         .setOptions(
           Object.values(PatchNoteTarget).map((target) =>
             new StringSelectMenuOptionBuilder()
-              .setLabel(localizePatchNoteTarget(interaction.locale, target))
+              .setLabel(patchNoteTargetNames[target])
               .setValue(target),
           ),
         ),
     );
 
   const categoryLabel = new LabelBuilder()
-    .setLabel(
-      i18n(interaction.locale, {
-        [Locale.EnglishUS]: "🏷️ Category",
-        [Locale.Japanese]: "🏷️ カテゴリ",
-      }),
-    )
-    .setDescription(
-      i18n(interaction.locale, {
-        [Locale.EnglishUS]: "Select a category for this patch note.",
-        [Locale.Japanese]: "このパッチノートのカテゴリを選択してください。",
-      }),
-    )
+    .setLabel("🏷️ カテゴリ")
+    .setDescription("このパッチノートのカテゴリを選択してください。")
     .setStringSelectMenuComponent(
       new StringSelectMenuBuilder()
         .setCustomId("category")
         .setOptions(
           Object.values(PatchNoteCategory).map((category) =>
             new StringSelectMenuOptionBuilder()
-              .setLabel(localizePatchNoteCategory(interaction.locale, category))
+              .setLabel(patchNoteCategoryNames[category])
               .setValue(category),
           ),
         ),
     );
 
   const titleLabel = new LabelBuilder()
-    .setLabel(
-      i18n(interaction.locale, {
-        [Locale.EnglishUS]: "✨ Title",
-        [Locale.Japanese]: "✨ タイトル",
-      }),
-    )
-    .setDescription(
-      i18n(interaction.locale, {
-        [Locale.EnglishUS]: "Enter a short summary of this patch note.",
-        [Locale.Japanese]: "一言でパッチノートの内容を表してください。",
-      }),
-    )
+    .setLabel("✨ タイトル")
+    .setDescription("一言でパッチノートの内容を表してください。")
     .setTextInputComponent(
       new TextInputBuilder().setCustomId("title").setStyle(TextInputStyle.Short),
     );
 
   const bodyLabel = new LabelBuilder()
-    .setLabel(
-      i18n(interaction.locale, {
-        [Locale.EnglishUS]: "📝 Body",
-        [Locale.Japanese]: "📝 本文",
-      }),
-    )
-    .setDescription(
-      i18n(interaction.locale, {
-        [Locale.EnglishUS]: "Describe the changes included in this patch note.",
-        [Locale.Japanese]: "このパッチノートの詳細を書いてください。",
-      }),
-    )
+    .setLabel("📝 本文")
+    .setDescription("このパッチノートの詳細を書いてください。")
     .setTextInputComponent(
       new TextInputBuilder().setCustomId("body").setStyle(TextInputStyle.Paragraph),
     );
 
   const imagesLabel = new LabelBuilder()
-    .setLabel(
-      i18n(interaction.locale, {
-        [Locale.EnglishUS]: "🎨 Images",
-        [Locale.Japanese]: "🎨 画像",
-      }),
-    )
-    .setDescription(
-      i18n(interaction.locale, {
-        [Locale.EnglishUS]: "Attach up to 10 images to illustrate this patch note (optional).",
-        [Locale.Japanese]: "このパッチノートを説明する画像を10枚まで添付できます（任意）。",
-      }),
-    )
+    .setLabel("🎨 画像")
+    .setDescription("このパッチノートを説明する画像を10枚まで添付できます（任意）。")
     .setFileUploadComponent(
       new FileUploadBuilder().setCustomId("images").setRequired(false).setMaxValues(10),
     );
@@ -139,22 +100,24 @@ export async function receivePatchNotePublishSubcommand(interaction: ChatInputCo
   await interaction.showModal(
     new ModalBuilder()
       .setCustomId("patchouli:publish")
-      .setTitle(
-        i18n(interaction.locale, {
-          [Locale.EnglishUS]: "Publish a patch note",
-          [Locale.Japanese]: "パッチノートを作成",
-        }),
-      )
+      .setTitle("パッチノートを作成")
       .addLabelComponents(targetLabel, categoryLabel, titleLabel, bodyLabel, imagesLabel),
   );
 }
 
-export async function receivePatchNotePublishModalSubmit(
-  interaction: ModalSubmitInteraction,
-  patchNotesApi: PatchNotesApi,
-  playersApi: PlayersApi,
-  config: Config,
-) {
+export async function receivePatchNotePublishModalSubmit({
+  interaction,
+  patchNotesApi,
+  playersApi,
+  webhookClients,
+  config,
+}: {
+  interaction: ModalSubmitInteraction;
+  patchNotesApi: PatchNotesApi;
+  playersApi: PlayersApi;
+  webhookClients: Partial<Record<PatchNoteTarget, WebhookClient>>;
+  config: Config;
+}) {
   const target = interaction.fields.getStringSelectValues("target")[0] as PatchNoteTarget;
   const category = interaction.fields.getStringSelectValues("category")[0] as PatchNoteCategory;
   const title = interaction.fields.getTextInputValue("title");
@@ -164,7 +127,6 @@ export async function receivePatchNotePublishModalSubmit(
   if (!instanceOfPatchNoteTarget(target)) {
     await interaction.reply({
       content: `❌ Validation error: Invalid target \`${target}\`.`,
-      ephemeral: true,
     });
     return;
   }
@@ -172,7 +134,6 @@ export async function receivePatchNotePublishModalSubmit(
   if (!instanceOfPatchNoteCategory(category)) {
     await interaction.reply({
       content: `❌ Validation error: Invalid category \`${category}\`.`,
-      ephemeral: true,
     });
     return;
   }
@@ -180,28 +141,27 @@ export async function receivePatchNotePublishModalSubmit(
   if (attachments.some((attachment) => !attachment.contentType?.startsWith("image/"))) {
     await interaction.reply({
       content: `❌ Validation error: Only image attachments are allowed.`,
-      ephemeral: true,
     });
     return;
   }
 
-  const publisherRoleId = config[target]?.roleId;
-  const memberRoles = interaction.member.roles;
-  if (
-    publisherRoleId &&
-    !(Array.isArray(memberRoles)
-      ? memberRoles.includes(publisherRoleId)
-      : memberRoles.cache.has(publisherRoleId))
-  ) {
+  if (!checkRole({ config, guildMember: interaction.member, patchNoteTarget: target })) {
     await interaction.reply({
-      content: `❌ You are not allowed to publish patch notes for \`${target}\`.`,
+      content: `❌ このサーバーのパッチノートを作成する権限がありません。`,
     });
     return;
   }
 
   await interaction.deferReply();
 
+  await interaction.editReply({
+    content: `🔁 パッチノートを投稿しています...`,
+  });
+
   try {
+    const players = await playersApi.listPlayers({ discordId: interaction.user.id });
+    const authorId = players.items?.[0]?.id ?? null;
+
     const images = await Promise.all(
       attachments.map(async (attachment) => {
         const response = await fetch(attachment.url);
@@ -217,11 +177,6 @@ export async function receivePatchNotePublishModalSubmit(
       }),
     );
 
-    const players = await playersApi.listPlayers({
-      discordId: interaction.user.id,
-    });
-    const authorId = players.items[0]?.id ?? null;
-
     const patchNote = await patchNotesApi.createPatchNote({
       target,
       category,
@@ -232,6 +187,7 @@ export async function receivePatchNotePublishModalSubmit(
     });
 
     await interaction.editReply({
+      content: null,
       embeds: [
         new EmbedBuilder()
           .setTitle(`✅ ${patchNote.title}`)
@@ -247,19 +203,13 @@ export async function receivePatchNotePublishModalSubmit(
               value: `https://www.azisaba.net/patch-notes/${patchNote.id}`,
             },
             {
-              name: i18n(interaction.guildLocale, {
-                [Locale.EnglishUS]: "📦 Target",
-                [Locale.Japanese]: "📦 対象",
-              }),
-              value: localizePatchNoteTarget(interaction.guildLocale, target),
+              name: "📦 サーバー",
+              value: patchNoteTargetNames[target],
               inline: true,
             },
             {
-              name: i18n(interaction.guildLocale, {
-                [Locale.EnglishUS]: "🏷️ Category",
-                [Locale.Japanese]: "🏷️ カテゴリ",
-              }),
-              value: localizePatchNoteCategory(interaction.guildLocale, category),
+              name: "🏷️ カテゴリ",
+              value: patchNoteCategoryNames[category],
               inline: true,
             },
           ),
@@ -269,12 +219,10 @@ export async function receivePatchNotePublishModalSubmit(
       ],
     });
 
-    await notifyPublished({
-      client: interaction.client,
-      sender: interaction.user,
-      config,
-      patchNote,
-    });
+    const webhook = webhookClients[target];
+    if (webhook) {
+      await notify({ webhook, patchNote, author: interaction.user });
+    }
   } catch (error) {
     console.error("Failed to create patch note:", error);
     await interaction.editReply({ content: "❌ API error" });

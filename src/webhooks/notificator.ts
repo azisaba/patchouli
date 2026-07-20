@@ -3,9 +3,11 @@ import { User, WebhookClient } from "discord.js";
 
 const categoryEmoji = {
   [PatchNoteCategory.Balance]: "🔧",
+  [PatchNoteCategory.Event]: "🥳",
   [PatchNoteCategory.Feature]: "✨",
   [PatchNoteCategory.Fix]: "🐛",
   [PatchNoteCategory.Improvement]: "📈",
+  [PatchNoteCategory.Remove]: "✂️",
 } satisfies Record<PatchNoteCategory, string>;
 
 export async function notify({

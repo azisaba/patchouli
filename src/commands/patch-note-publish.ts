@@ -35,9 +35,11 @@ const patchNoteTargetNames = {
 
 const patchNoteCategoryNames = {
   [PatchNoteCategory.Balance]: "🔧 バランス",
+  [PatchNoteCategory.Event]: "🥳 イベント",
   [PatchNoteCategory.Feature]: "✨ 新機能",
   [PatchNoteCategory.Fix]: "🐛 バグ修正",
   [PatchNoteCategory.Improvement]: "📈 改善",
+  [PatchNoteCategory.Remove]: "✂️ 削除",
 } satisfies Record<PatchNoteCategory, string>;
 
 export function buildPatchNotePublishSubcommand(

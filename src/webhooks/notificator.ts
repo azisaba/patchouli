@@ -21,6 +21,7 @@ export async function notify({
 
   await webhook.send({
     content: `# ${emoji} ${patchNote.title}
+    ${author ? `Special thanks to ${author}!` : ""}
     https://www.azisaba.net/patch-notes/${patchNote.id}
     `,
     ...(author && {
